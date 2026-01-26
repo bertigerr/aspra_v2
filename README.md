@@ -41,7 +41,7 @@ const supabase = createSupabaseBrowserClient()
 ```ts
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 
-const supabase = createSupabaseServerClient()
+const supabase = await createSupabaseServerClient()
 ```
 
 4. Middleware helper (optional):

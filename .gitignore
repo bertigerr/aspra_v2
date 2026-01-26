@@ -1,26 +1,43 @@
 # dependencies
-node_modules
+node_modules/
 
-# next.js
-.next
-out
+# Next.js build output
+.next/
+out/
+build/
 
-# production
-build
+# Turbopack / tooling caches
+.turbo/
+.swc/
 
 # logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
-# env
+# runtime
+*.pid
+*.seed
+
+# env (keep .env.example tracked)
 .env
 .env.local
 .env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# tests / coverage
+coverage/
+.nyc_output/
+
+# Vercel
+.vercel/
 
 # misc
 .DS_Store
-
-# turbo
-.turbo
+*.pem
+*.key

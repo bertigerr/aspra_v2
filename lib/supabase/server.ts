@@ -3,25 +3,20 @@ import { cookies } from "next/headers"
 
 import { getSupabaseConfig } from "./config"
 
-export function createSupabaseServerClient() {
-  const cookieStore = cookies()
+export async function createSupabaseServerClient() {
+  const cookieStore = await cookies()
   const { url, anonKey } = getSupabaseConfig()
 
   return createServerClient(url, anonKey, {
     cookies: {
-      get(name) {
-        return cookieStore.get(name)?.value
+      async getAll() {
+        return cookieStore.getAll()
       },
-      set(name, value, options) {
+      async setAll(cookiesToSet) {
         try {
-          cookieStore.set({ name, value, ...options })
-        } catch {
-          // The cookies API throws in Server Components; ignore and rely on middleware/route handlers.
-        }
-      },
-      remove(name, options) {
-        try {
-          cookieStore.set({ name, value: "", ...options })
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options)
+          })
         } catch {
           // The cookies API throws in Server Components; ignore and rely on middleware/route handlers.
         }
@@ -29,3 +24,4 @@ export function createSupabaseServerClient() {
     },
   })
 }
+
