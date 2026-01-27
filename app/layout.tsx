@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 import { BottomNav } from "@/components/layout/BottomNav";
 
@@ -38,6 +39,7 @@ export default function RootLayout({
       >
         <main className="pb-20">{children}</main>
         <BottomNav />
+        <Toaster />
       </body>
     </html>
   );

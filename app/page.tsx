@@ -1,46 +1,68 @@
-import { redirect } from "next/navigation"
+"use client";
 
-import { SignOutButton } from "@/components/auth/sign-out-button"
-import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { useState } from "react";
+import { SearchInput } from "@/components/features/SearchInput";
+import { ResultCard } from "@/components/features/ResultCard";
+import { analyzeWord, AIAnalysisResult } from "@/app/actions";
+import { toast } from "sonner";
+import { RefreshCcw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-export default async function Home() {
-  const supabase = await createSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+export default function Home() {
+  const [result, setResult] = useState<AIAnalysisResult | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  if (!user) {
-    redirect("/login")
-  }
+  const handleSearch = async (query: string) => {
+    setLoading(true);
+    try {
+      // TODO: Get user settings for target/native language
+      const data = await analyzeWord(query);
+      setResult(data);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to analyze word. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    setResult(null);
+  };
 
   return (
-    <div className="dark relative min-h-screen overflow-hidden bg-zinc-950 text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_60%_at_10%_0%,rgba(34,197,94,0.18),transparent_60%),radial-gradient(50%_50%_at_90%_20%,rgba(59,130,246,0.2),transparent_60%)]" />
-      <div className="relative mx-auto flex min-h-screen max-w-4xl flex-col gap-10 px-6 py-16">
-        <header className="flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-white/50">Aspra</p>
-            <h1 className="text-3xl font-semibold">Словарь готов к работе</h1>
-            <p className="mt-2 text-sm text-white/70">Пользователь: {user.email ?? user.id}</p>
-          </div>
-          <SignOutButton />
-        </header>
+    <div className="relative min-h-screen w-full flex flex-col items-center justify-center p-6 overflow-hidden bg-zinc-950 text-white">
+      {/* Background Ambience */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute top-[-20%] left-[-10%] h-[500px] w-[500px] rounded-full bg-emerald-500/10 blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] h-[500px] w-[500px] rounded-full bg-sky-500/10 blur-[120px]" />
+      </div>
 
-        <section className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur">
-            <h2 className="text-lg font-semibold">Добавить слово</h2>
-            <p className="mt-2 text-sm text-white/70">
-              Скоро здесь появится быстрый поиск и генерация переводов.
-            </p>
+      <div className="relative z-10 w-full max-w-md flex flex-col items-center">
+        <SearchInput
+          onSearch={handleSearch}
+          isLoading={loading}
+          hasResult={!!result}
+        />
+
+        {result && (
+          <div className="w-full flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
+            <ResultCard
+              result={result}
+              onSave={() => toast.success("Connected in next task!")}
+            />
+
+            <Button
+              variant="ghost"
+              onClick={handleReset}
+              className="text-white/50 hover:text-white"
+            >
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              Scan another word
+            </Button>
           </div>
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur">
-            <h2 className="text-lg font-semibold">Тренировка</h2>
-            <p className="mt-2 text-sm text-white/70">
-              Следующий шаг — карточки и кнопки оценки повторений.
-            </p>
-          </div>
-        </section>
+        )}
       </div>
     </div>
-  )
+  );
 }
