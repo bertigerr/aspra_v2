@@ -33,9 +33,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-[#0F1117] text-white`}
       >
         <main className="pb-28">{children}</main>
         <BottomNav />

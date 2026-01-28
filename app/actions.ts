@@ -103,3 +103,27 @@ export async function saveWord(word: AIAnalysisResult) {
 
     return { success: true };
 }
+
+export async function getWords() {
+    const supabase = await createSupabaseServerClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        return [];
+    }
+
+    const { data, error } = await supabase
+        .from("words")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        console.error("Fetch Words Error:", error);
+        return [];
+    }
+
+    return data || [];
+}

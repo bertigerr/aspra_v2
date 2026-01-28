@@ -1,8 +1,19 @@
-export default function LibraryPage() {
+import { getWords } from "@/app/actions";
+import { WordList } from "@/components/features/WordList";
+
+export const dynamic = "force-dynamic"; // Ensure fresh data
+
+export default async function LibraryPage() {
+    const words = await getWords();
+
     return (
-        <div className="flex min-h-screen flex-col items-center justify-center p-4 text-center">
-            <h1 className="text-2xl font-bold mb-2">Library</h1>
-            <p className="text-muted-foreground">Your saved words will appear here.</p>
+        <div className="min-h-screen p-6 pt-12">
+            <header className="mb-8">
+                <h1 className="text-3xl font-bold text-white mb-2">Library</h1>
+                <p className="text-zinc-400">Your collection of {words.length} words.</p>
+            </header>
+
+            <WordList words={words} />
         </div>
     );
 }
