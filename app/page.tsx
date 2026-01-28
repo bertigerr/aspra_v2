@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { SearchInput } from "@/components/features/SearchInput";
 import { ResultCard } from "@/components/features/ResultCard";
-import { analyzeWord, AIAnalysisResult } from "@/app/actions";
+import { analyzeWord, saveWord, AIAnalysisResult } from "@/app/actions";
 import { toast } from "sonner";
 import { RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -49,7 +49,15 @@ export default function Home() {
           <div className="w-full flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
             <ResultCard
               result={result}
-              onSave={() => toast.success("Connected in next task!")}
+              onSave={async () => {
+                try {
+                  await saveWord(result);
+                  toast.success("Saved to dictionary!");
+                  setResult(null); // Clear after save to encourage next search
+                } catch (e) {
+                  toast.error("Failed to save. Are you logged in?");
+                }
+              }}
             />
 
             <Button

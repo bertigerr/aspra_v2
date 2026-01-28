@@ -60,3 +60,46 @@ export async function analyzeWord(
         throw new Error("Failed to analyze word. Check server logs for details.");
     }
 }
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createEmptyCard, Card } from "ts-fsrs";
+
+// ... previous interfaces ...
+
+export async function saveWord(word: AIAnalysisResult) {
+    const supabase = await createSupabaseServerClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        throw new Error("Unauthorized");
+    }
+
+    // Initialize new FSRS card
+    const card: Card = createEmptyCard();
+
+    // Prepare data for DB
+    const wordData = {
+        user_id: user.id,
+        text: word.text,
+        translation: word.translation,
+        definition: word.definition,
+        examples: word.examples, // Storing array as JSON
+        // FSRS fields
+        stability: card.stability,
+        difficulty: card.difficulty,
+        elapsed_days: card.elapsed_days,
+        reps: card.reps,
+        state: card.state,
+        due_date: card.due.toISOString(), // Convert Date to TIMESTAMPTZ string
+    };
+
+    const { error } = await supabase.from("words").insert(wordData);
+
+    if (error) {
+        console.error("Save Error:", JSON.stringify(error, null, 2));
+        throw new Error("Failed to save word");
+    }
+
+    return { success: true };
+}
