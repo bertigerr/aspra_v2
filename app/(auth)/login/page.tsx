@@ -42,7 +42,8 @@ function LoginForm() {
     }
 
     const nextPath = searchParams.get("next")
-    const safeNext = nextPath && nextPath.startsWith("/") ? nextPath : "/"
+    const safeNext =
+      nextPath && nextPath.startsWith("/") && nextPath !== "/" ? nextPath : "/app"
 
     router.push(safeNext)
     router.refresh()
@@ -139,4 +140,3 @@ export default function LoginPage() {
     </div>
   )
 }
-

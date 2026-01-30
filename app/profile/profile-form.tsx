@@ -10,11 +10,11 @@ import { LogOut, Save } from "lucide-react";
 import { updateProfile } from "@/app/actions";
 
 interface ProfileFormProps {
-    initialNativeLanguage: string;
+    initialNativeLang: string;
     email: string;
 }
 
-export function ProfileForm({ initialNativeLanguage, email }: ProfileFormProps) {
+export function ProfileForm({ initialNativeLang, email }: ProfileFormProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
@@ -49,20 +49,23 @@ export function ProfileForm({ initialNativeLanguage, email }: ProfileFormProps) 
 
             <form action={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
-                    <label htmlFor="native_language" className="text-sm font-medium text-white/70">
-                        Native Language
+                    <label htmlFor="native_lang" className="text-sm font-medium text-white/70">
+                        Native language
                     </label>
                     <div className="relative">
                         <select
-                            id="native_language"
-                            name="native_language"
-                            defaultValue={initialNativeLanguage}
+                            id="native_lang"
+                            name="native_lang"
+                            defaultValue={initialNativeLang}
                             className="h-11 w-full appearance-none rounded-xl border border-white/10 bg-white/10 px-3 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
                         >
                             <option value="ru" className="bg-zinc-900">Русский</option>
                             <option value="en" className="bg-zinc-900">English</option>
                             <option value="es" className="bg-zinc-900">Español</option>
+                            <option value="fr" className="bg-zinc-900">Français</option>
                             <option value="de" className="bg-zinc-900">Deutsch</option>
+                            <option value="ar" className="bg-zinc-900">العربية</option>
+                            <option value="pt" className="bg-zinc-900">Português</option>
                         </select>
                         <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/50">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>

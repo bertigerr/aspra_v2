@@ -6,7 +6,7 @@ import { Home, Dumbbell, BookOpen, BarChart2, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-    { href: "/", label: "Home", icon: Home },
+    { href: "/app", label: "Home", icon: Home },
     { href: "/library", label: "Library", icon: BookOpen },
     { href: "/train", label: "Train", icon: Dumbbell }, // Center item
     { href: "/stats", label: "Stats", icon: BarChart2 },
@@ -16,11 +16,17 @@ const navItems = [
 export function BottomNav() {
     const pathname = usePathname();
 
+    const hiddenPrefixes = ["/login", "/register", "/onboarding", "/auth"];
+    if (hiddenPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
+        return null;
+    }
+
     return (
         <nav className="fixed bottom-6 left-1/2 z-50 w-[calc(100%-32px)] max-w-sm -translate-x-1/2 transform">
             <div className="relative flex items-center justify-between rounded-full border border-white/10 bg-[#0F1117]/80 px-2 py-2 shadow-2xl backdrop-blur-xl backdrop-saturate-150">
                 {navItems.map((item) => {
-                    const isActive = pathname === item.href;
+                    const isActive =
+                        pathname === item.href || (item.href !== "/app" && pathname.startsWith(`${item.href}/`));
                     const Icon = item.icon;
                     const isMainAction = item.label === "Train";
 

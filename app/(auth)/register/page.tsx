@@ -24,7 +24,7 @@ export default function RegisterPage() {
     const email = String(formData.get("email") || "").trim()
     const password = String(formData.get("password") || "")
 
-    const native_language = String(formData.get("native_language") || "ru")
+    const native_lang = String(formData.get("native_lang") || "en")
 
     if (!email || !password) {
       setError("Введите email и пароль.")
@@ -38,7 +38,8 @@ export default function RegisterPage() {
       password,
       options: {
         data: {
-          native_language,
+          native_lang,
+          native_language: native_lang,
         },
       },
     })
@@ -50,7 +51,7 @@ export default function RegisterPage() {
     }
 
     if (data.session) {
-      router.push("/")
+      router.push("/app")
       router.refresh()
       return
     }
@@ -113,20 +114,23 @@ export default function RegisterPage() {
             )}
 
             <div className="space-y-2">
-              <label className="text-xs font-medium text-white/70" htmlFor="native_language">
+              <label className="text-xs font-medium text-white/70" htmlFor="native_lang">
                 Родной язык
               </label>
               <div className="relative">
                 <select
-                  id="native_language"
-                  name="native_language"
+                  id="native_lang"
+                  name="native_lang"
                   className="h-11 w-full appearance-none rounded-xl border border-white/10 bg-white/10 px-3 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
-                  defaultValue="ru"
+                  defaultValue="en"
                 >
                   <option value="ru" className="bg-zinc-900">Русский</option>
                   <option value="en" className="bg-zinc-900">English</option>
                   <option value="es" className="bg-zinc-900">Español</option>
+                  <option value="fr" className="bg-zinc-900">Français</option>
                   <option value="de" className="bg-zinc-900">Deutsch</option>
+                  <option value="ar" className="bg-zinc-900">العربية</option>
+                  <option value="pt" className="bg-zinc-900">Português</option>
                 </select>
                 <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/50">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>

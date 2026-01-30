@@ -1,6 +1,15 @@
 "use server";
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createEmptyCard, type Card } from "ts-fsrs";
+import {
+    getLangLabel,
+    isActiveLang,
+    isLanguageLevel,
+    type ActiveLang,
+    type LanguageLevel,
+} from "@/lib/languages";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
@@ -17,19 +26,137 @@ export interface AIAnalysisResult {
     examples: Example[];
 }
 
+async function requireUser() {
+    const supabase = await createSupabaseServerClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        throw new Error("Unauthorized");
+    }
+
+    return { supabase, user };
+}
+
+async function getProfile(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, userId: string) {
+    const { data, error } = await supabase
+        .from("profiles")
+        .select("native_lang, active_lang, onboarding_completed_at")
+        .eq("id", userId)
+        .maybeSingle();
+
+    if (error) {
+        if (error.code === "PGRST204") {
+            throw new Error(
+                "Supabase schema cache is out of date. Apply the latest migrations in `supabase/migrations` and reload the schema cache (Dashboard → Settings → API → Restart)."
+            );
+        }
+        throw new Error("Failed to fetch profile");
+    }
+
+    return data;
+}
+
+async function requireActiveLang(
+    supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+    userId: string
+): Promise<ActiveLang> {
+    const profile = await getProfile(supabase, userId);
+    const activeLang = profile?.active_lang;
+
+    if (!activeLang || !isActiveLang(activeLang)) {
+        throw new Error("Active language is not set");
+    }
+
+    return activeLang;
+}
+
+async function getOrCreateDefaultDictionaryId(
+    supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+    userId: string,
+    langCode: ActiveLang
+): Promise<string> {
+    const { data: existing, error: existingError } = await supabase
+        .from("dictionaries")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("lang_code", langCode)
+        .eq("is_default", true)
+        .maybeSingle();
+
+    if (existingError) {
+        throw new Error("Failed to fetch dictionary");
+    }
+
+    if (existing?.id) {
+        return existing.id;
+    }
+
+    const { data: created, error: createError } = await supabase
+        .from("dictionaries")
+        .insert({
+            user_id: userId,
+            lang_code: langCode,
+            name: getLangLabel(langCode),
+            is_default: true,
+        })
+        .select("id")
+        .single();
+
+    if (!createError) {
+        return created.id;
+    }
+
+    // In case of race condition, try selecting again
+    const { data: retry, error: retryError } = await supabase
+        .from("dictionaries")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("lang_code", langCode)
+        .eq("is_default", true)
+        .maybeSingle();
+
+    if (retryError || !retry?.id) {
+        throw new Error("Failed to create dictionary");
+    }
+
+    return retry.id;
+}
+
 export async function analyzeWord(
     query: string,
-    nativeLang: string = "ru",
-    targetLang: string = "en"
+    nativeLang?: string,
+    targetLang?: string
 ): Promise<AIAnalysisResult> {
     if (!process.env.GEMINI_API_KEY) {
         throw new Error("GEMINI_API_KEY is not set");
     }
 
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+        throw new Error("Query is required");
+    }
+
+    let resolvedNativeLang = nativeLang;
+    let resolvedTargetLang = targetLang;
+
+    try {
+        const { supabase, user } = await requireUser();
+        const profile = await getProfile(supabase, user.id);
+
+        resolvedNativeLang ||= profile?.native_lang || "en";
+        resolvedTargetLang ||= (isActiveLang(profile?.active_lang || "") ? profile?.active_lang : null) || "en";
+    } catch {
+        // Allow running without auth context (e.g. public pages/dev)
+        resolvedNativeLang ||= "en";
+        resolvedTargetLang ||= "en";
+    }
+
     const prompt = `
-    Analyze the word or phrase "${query}".
-    Target Language: ${targetLang} (the language of the word).
-    Native Language: ${nativeLang} (for translation).
+    Analyze the word or phrase "${trimmedQuery}".
+    Target Language: ${resolvedTargetLang} (the language of the word).
+    Native Language: ${resolvedNativeLang} (for translation).
 
     Return ONLY a JSON object with the following structure (no markdown, no extra text):
     {
@@ -60,20 +187,11 @@ export async function analyzeWord(
         throw new Error("Failed to analyze word. Check server logs for details.");
     }
 }
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createEmptyCard, Card } from "ts-fsrs";
-
-// ... previous interfaces ...
 
 export async function saveWord(word: AIAnalysisResult) {
-    const supabase = await createSupabaseServerClient();
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-        throw new Error("Unauthorized");
-    }
+    const { supabase, user } = await requireUser();
+    const activeLang = await requireActiveLang(supabase, user.id);
+    const dictionaryId = await getOrCreateDefaultDictionaryId(supabase, user.id, activeLang);
 
     // Initialize new FSRS card
     const card: Card = createEmptyCard();
@@ -81,6 +199,8 @@ export async function saveWord(word: AIAnalysisResult) {
     // Prepare data for DB
     const wordData = {
         user_id: user.id,
+        lang_code: activeLang,
+        dictionary_id: dictionaryId,
         text: word.text,
         translation: word.translation,
         definition: word.definition,
@@ -105,19 +225,14 @@ export async function saveWord(word: AIAnalysisResult) {
 }
 
 export async function getWords() {
-    const supabase = await createSupabaseServerClient();
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-        return [];
-    }
+    const { supabase, user } = await requireUser();
+    const activeLang = await requireActiveLang(supabase, user.id);
 
     const { data, error } = await supabase
         .from("words")
         .select("*")
         .eq("user_id", user.id)
+        .eq("lang_code", activeLang)
         .order("created_at", { ascending: false });
 
     if (error) {
@@ -129,26 +244,21 @@ export async function getWords() {
 }
 
 export async function updateProfile(formData: FormData) {
-    const supabase = await createSupabaseServerClient();
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+    const { supabase, user } = await requireUser();
 
-    if (!user) {
-        throw new Error("Unauthorized");
+    const native_lang = String(formData.get("native_lang") ?? "").trim();
+
+    if (!native_lang) {
+        throw new Error("Native language is required");
     }
 
-    const native_language = String(formData.get("native_language") ?? "").trim();
-
-    // Simple validation
-    if (!["ru", "en", "es", "de"].includes(native_language)) {
-        throw new Error("Invalid language");
-    }
-
-    const { error } = await supabase
-        .from("profiles")
-        .update({ native_language })
-        .eq("id", user.id);
+    const { error } = await supabase.from("profiles").upsert(
+        {
+            id: user.id,
+            native_lang,
+        },
+        { onConflict: "id" }
+    );
 
     if (error) {
         console.error("Update Profile Error:", error);
@@ -159,11 +269,14 @@ export async function updateProfile(formData: FormData) {
 }
 
 export async function getWord(id: string) {
-    const supabase = await createSupabaseServerClient();
+    const { supabase, user } = await requireUser();
+    const activeLang = await requireActiveLang(supabase, user.id);
     const { data, error } = await supabase
         .from("words")
         .select("*")
         .eq("id", id)
+        .eq("user_id", user.id)
+        .eq("lang_code", activeLang)
         .single();
 
     if (error) {
@@ -173,7 +286,8 @@ export async function getWord(id: string) {
 }
 
 export async function updateWord(id: string, formData: FormData) {
-    const supabase = await createSupabaseServerClient();
+    const { supabase, user } = await requireUser();
+    const activeLang = await requireActiveLang(supabase, user.id);
 
     const text = String(formData.get("text") ?? "").trim();
     const translationInput = String(formData.get("translation") ?? "").trim();
@@ -189,7 +303,9 @@ export async function updateWord(id: string, formData: FormData) {
     const { error } = await supabase
         .from("words")
         .update({ text, translation, definition })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .eq("lang_code", activeLang);
 
     if (error) {
         throw new Error("Failed to update word");
@@ -199,15 +315,267 @@ export async function updateWord(id: string, formData: FormData) {
 }
 
 export async function deleteWord(id: string) {
-    const supabase = await createSupabaseServerClient();
+    const { supabase, user } = await requireUser();
+    const activeLang = await requireActiveLang(supabase, user.id);
     const { error } = await supabase
         .from("words")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .eq("lang_code", activeLang);
 
     if (error) {
         throw new Error("Failed to delete word");
     }
+
+    return { success: true };
+}
+
+export async function completeOnboarding(
+    nativeLang: string,
+    activeLang: ActiveLang,
+    level: LanguageLevel
+) {
+    const { supabase, user } = await requireUser();
+
+    const trimmedNative = nativeLang.trim();
+    if (!trimmedNative) {
+        throw new Error("Native language is required");
+    }
+
+    if (!isActiveLang(activeLang)) {
+        throw new Error("Invalid active language");
+    }
+
+    if (!isLanguageLevel(level)) {
+        throw new Error("Invalid language level");
+    }
+
+    const now = new Date().toISOString();
+
+    // Save step fields (idempotent) but don't mark onboarding complete until everything succeeds.
+    const { error: upsertProfileError } = await supabase.from("profiles").upsert(
+        {
+            id: user.id,
+            native_lang: trimmedNative,
+            active_lang: activeLang,
+        },
+        { onConflict: "id" }
+    );
+
+    if (upsertProfileError) {
+        console.error("Onboarding profile upsert error:", upsertProfileError);
+        if (upsertProfileError.code === "PGRST204") {
+            throw new Error(
+                "Supabase schema cache is out of date. Apply the latest migrations in `supabase/migrations` and reload the schema cache (Dashboard → Settings → API → Restart)."
+            );
+        }
+        throw new Error("Failed to save onboarding");
+    }
+
+    const { error: insertUserLangError } = await supabase.from("user_languages").insert({
+        user_id: user.id,
+        lang_code: activeLang,
+        level,
+        enabled_at: now,
+        last_active_at: now,
+    });
+
+    if (insertUserLangError) {
+        const { error: updateUserLangError } = await supabase
+            .from("user_languages")
+            .update({ level, last_active_at: now })
+            .eq("user_id", user.id)
+            .eq("lang_code", activeLang);
+
+        if (updateUserLangError) {
+            console.error("Onboarding user_languages error:", insertUserLangError, updateUserLangError);
+            throw new Error("Failed to save onboarding");
+        }
+    }
+
+    await getOrCreateDefaultDictionaryId(supabase, user.id, activeLang);
+
+    const { error: completeError } = await supabase
+        .from("profiles")
+        .update({ onboarding_completed_at: now })
+        .eq("id", user.id);
+
+    if (completeError) {
+        console.error("Onboarding completion error:", completeError);
+        throw new Error("Failed to complete onboarding");
+    }
+
+    console.info("onboarding_completed", { native_lang: trimmedNative, active_lang: activeLang, level });
+
+    return { success: true };
+}
+
+export async function saveOnboardingNativeLang(nativeLang: string) {
+    const { supabase, user } = await requireUser();
+    const trimmedNative = nativeLang.trim();
+
+    if (!trimmedNative) {
+        throw new Error("Native language is required");
+    }
+
+    const { error } = await supabase.from("profiles").upsert(
+        {
+            id: user.id,
+            native_lang: trimmedNative,
+        },
+        { onConflict: "id" }
+    );
+
+    if (error) {
+        console.error("Onboarding native_lang save error:", error);
+        if (error.code === "PGRST204") {
+            throw new Error(
+                "Supabase schema cache is out of date. Apply the latest migrations in `supabase/migrations` and reload the schema cache (Dashboard → Settings → API → Restart)."
+            );
+        }
+        throw new Error("Failed to save onboarding");
+    }
+
+    return { success: true };
+}
+
+export async function saveOnboardingActiveLang(activeLang: ActiveLang) {
+    const { supabase, user } = await requireUser();
+
+    if (!isActiveLang(activeLang)) {
+        throw new Error("Invalid active language");
+    }
+
+    const { error } = await supabase.from("profiles").upsert(
+        {
+            id: user.id,
+            active_lang: activeLang,
+        },
+        { onConflict: "id" }
+    );
+
+    if (error) {
+        console.error("Onboarding active_lang save error:", error);
+        if (error.code === "PGRST204") {
+            throw new Error(
+                "Supabase schema cache is out of date. Apply the latest migrations in `supabase/migrations` and reload the schema cache (Dashboard → Settings → API → Restart)."
+            );
+        }
+        throw new Error("Failed to save onboarding");
+    }
+
+    return { success: true };
+}
+
+export async function getLanguageState() {
+    const { supabase, user } = await requireUser();
+
+    const profile = await getProfile(supabase, user.id);
+    const activeLang = profile?.active_lang && isActiveLang(profile.active_lang) ? profile.active_lang : null;
+
+    const { data: languages, error } = await supabase
+        .from("user_languages")
+        .select("lang_code, level, last_active_at")
+        .eq("user_id", user.id)
+        .order("last_active_at", { ascending: false });
+
+    if (error) {
+        throw new Error("Failed to fetch languages");
+    }
+
+    return {
+        active_lang: activeLang,
+        languages: languages || [],
+    };
+}
+
+export async function setActiveLang(langCode: ActiveLang) {
+    const { supabase, user } = await requireUser();
+
+    if (!isActiveLang(langCode)) {
+        throw new Error("Invalid language");
+    }
+
+    const now = new Date().toISOString();
+
+    const { data: enabled, error: enabledError } = await supabase
+        .from("user_languages")
+        .select("lang_code")
+        .eq("user_id", user.id)
+        .eq("lang_code", langCode)
+        .maybeSingle();
+
+    if (enabledError || !enabled) {
+        throw new Error("Language is not enabled");
+    }
+
+    const { error: updateProfileError } = await supabase
+        .from("profiles")
+        .update({ active_lang: langCode })
+        .eq("id", user.id);
+
+    if (updateProfileError) {
+        throw new Error("Failed to switch language");
+    }
+
+    await supabase
+        .from("user_languages")
+        .update({ last_active_at: now })
+        .eq("user_id", user.id)
+        .eq("lang_code", langCode);
+
+    console.info("active_lang_changed", { to: langCode });
+
+    return { success: true };
+}
+
+export async function enableLanguage(langCode: ActiveLang, level: LanguageLevel) {
+    const { supabase, user } = await requireUser();
+
+    if (!isActiveLang(langCode)) {
+        throw new Error("Invalid language");
+    }
+
+    if (!isLanguageLevel(level)) {
+        throw new Error("Invalid level");
+    }
+
+    const now = new Date().toISOString();
+
+    const { error: insertError } = await supabase.from("user_languages").insert({
+        user_id: user.id,
+        lang_code: langCode,
+        level,
+        enabled_at: now,
+        last_active_at: now,
+    });
+
+    if (insertError) {
+        const { error: updateError } = await supabase
+            .from("user_languages")
+            .update({ level, last_active_at: now })
+            .eq("user_id", user.id)
+            .eq("lang_code", langCode);
+
+        if (updateError) {
+            console.error("Enable language error:", insertError, updateError);
+            throw new Error("Failed to enable language");
+        }
+    }
+
+    await getOrCreateDefaultDictionaryId(supabase, user.id, langCode);
+
+    const { error: updateProfileError } = await supabase
+        .from("profiles")
+        .update({ active_lang: langCode })
+        .eq("id", user.id);
+
+    if (updateProfileError) {
+        throw new Error("Failed to enable language");
+    }
+
+    console.info("language_enabled", { lang_code: langCode, level });
 
     return { success: true };
 }
