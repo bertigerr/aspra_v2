@@ -1,6 +1,6 @@
 "use client";
 
-import { Volume2, Check } from "lucide-react";
+import { Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AIAnalysisResult } from "@/app/actions";
 import { cn } from "@/lib/utils";

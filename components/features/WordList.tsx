@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Volume2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface Word {
     id: string;
@@ -17,10 +18,12 @@ interface WordListProps {
 }
 
 export function WordList({ words }: WordListProps) {
+    const router = useRouter();
+
     if (words.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center">
-                <p className="text-muted-foreground mb-4">You haven't saved any words yet.</p>
+                <p className="text-muted-foreground mb-4">You haven&apos;t saved any words yet.</p>
                 <p className="text-sm text-zinc-500">Go to Home to analyze and save new words!</p>
             </div>
         );
@@ -34,7 +37,8 @@ export function WordList({ words }: WordListProps) {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.05 }}
-                    className="group relative overflow-hidden rounded-2xl border border-white/5 bg-white/5 p-5 backdrop-blur-sm transition-all hover:bg-white/10"
+                    onClick={() => router.push(`/library/${word.id}`)}
+                    className="group relative overflow-hidden rounded-2xl border border-white/5 bg-white/5 p-5 backdrop-blur-sm transition-all hover:bg-white/10 cursor-pointer"
                 >
                     <div className="flex items-start justify-between mb-2">
                         <div>
@@ -57,7 +61,13 @@ export function WordList({ words }: WordListProps) {
                     </div>
 
                     <div className="absolute right-4 bottom-4 opacity-0 transition-opacity group-hover:opacity-100">
-                        <button className="rounded-full bg-white/10 p-2 text-white hover:bg-white/20">
+                        <button
+                            className="rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                // Add audio playing logic here later
+                            }}
+                        >
                             <Volume2 className="h-4 w-4" />
                         </button>
                     </div>

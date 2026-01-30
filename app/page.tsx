@@ -54,7 +54,8 @@ export default function Home() {
                   await saveWord(result);
                   toast.success("Saved to dictionary!");
                   setResult(null); // Clear after save to encourage next search
-                } catch (e) {
+                } catch (error) {
+                  console.error(error);
                   toast.error("Failed to save. Are you logged in?");
                 }
               }}

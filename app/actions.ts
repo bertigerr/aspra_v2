@@ -127,3 +127,87 @@ export async function getWords() {
 
     return data || [];
 }
+
+export async function updateProfile(formData: FormData) {
+    const supabase = await createSupabaseServerClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        throw new Error("Unauthorized");
+    }
+
+    const native_language = String(formData.get("native_language") ?? "").trim();
+
+    // Simple validation
+    if (!["ru", "en", "es", "de"].includes(native_language)) {
+        throw new Error("Invalid language");
+    }
+
+    const { error } = await supabase
+        .from("profiles")
+        .update({ native_language })
+        .eq("id", user.id);
+
+    if (error) {
+        console.error("Update Profile Error:", error);
+        throw new Error("Failed to update profile");
+    }
+
+    return { success: true };
+}
+
+export async function getWord(id: string) {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+        .from("words")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+    if (error) {
+        return null;
+    }
+    return data;
+}
+
+export async function updateWord(id: string, formData: FormData) {
+    const supabase = await createSupabaseServerClient();
+
+    const text = String(formData.get("text") ?? "").trim();
+    const translationInput = String(formData.get("translation") ?? "").trim();
+    const definitionInput = String(formData.get("definition") ?? "").trim();
+
+    if (!text) {
+        throw new Error("Text is required");
+    }
+
+    const translation = translationInput === "" ? null : translationInput;
+    const definition = definitionInput === "" ? null : definitionInput;
+
+    const { error } = await supabase
+        .from("words")
+        .update({ text, translation, definition })
+        .eq("id", id);
+
+    if (error) {
+        throw new Error("Failed to update word");
+    }
+
+    return { success: true };
+}
+
+export async function deleteWord(id: string) {
+    const supabase = await createSupabaseServerClient();
+    const { error } = await supabase
+        .from("words")
+        .delete()
+        .eq("id", id);
+
+    if (error) {
+        throw new Error("Failed to delete word");
+    }
+
+    return { success: true };
+}

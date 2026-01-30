@@ -30,7 +30,7 @@ export function BottomNav() {
                                 <Link
                                     href={item.href}
                                     className={cn(
-                                        "flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-all duration-300 hover:scale-105 active:scale-95",
+                                        "flex h-20 w-20 items-center justify-center rounded-full shadow-lg transition-all duration-300 hover:scale-105 active:scale-95",
                                         isActive
                                             ? "bg-emerald-400 text-zinc-950 shadow-emerald-400/50"
                                             : "bg-emerald-500 text-white shadow-emerald-500/30 hover:bg-emerald-400"
