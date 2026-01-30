@@ -2,8 +2,9 @@ import { getWord } from "@/app/actions";
 import { notFound } from "next/navigation";
 import { EditCardForm } from "./edit-card-form";
 
-export default async function EditCardPage({ params }: { params: { id: string } }) {
-    const word = await getWord(params.id);
+export default async function EditCardPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
+    const word = await getWord(id);
 
     if (!word) {
         notFound();
