@@ -86,6 +86,7 @@ function VerifyForm() {
     })
 
     if (authError) {
+      console.error("[auth] auth_otp_verified_error", authError.message)
       setError(toFriendlyOtpErrorMessage(authError.message))
       setSubmitting(false)
       setCode("")
@@ -93,6 +94,7 @@ function VerifyForm() {
       return
     }
 
+    console.info("[auth] auth_otp_verified_success")
     router.push(safeNext)
     router.refresh()
   }
@@ -116,6 +118,8 @@ function VerifyForm() {
     setError(null)
     setMessage(null)
 
+    console.info("[auth] auth_otp_resend_clicked")
+
     const supabase = createSupabaseBrowserClient()
     const { error: authError } = await supabase.auth.signInWithOtp({
       email,
@@ -123,6 +127,7 @@ function VerifyForm() {
     })
 
     if (authError) {
+      console.error("[auth] auth_otp_resend_error", authError.message)
       setError(authError.message)
       setSubmitting(false)
       return
@@ -251,4 +256,3 @@ export default function VerifyPage() {
     </div>
   )
 }
-

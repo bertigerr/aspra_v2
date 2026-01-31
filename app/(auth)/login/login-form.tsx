@@ -39,6 +39,8 @@ export function LoginForm({ oauthEnabled }: { oauthEnabled: boolean }) {
       return
     }
 
+    console.info("[auth] auth_otp_requested")
+
     const supabase = createSupabaseBrowserClient()
     const { error: authError } = await supabase.auth.signInWithOtp({
       email,
@@ -46,6 +48,7 @@ export function LoginForm({ oauthEnabled }: { oauthEnabled: boolean }) {
     })
 
     if (authError) {
+      console.error("[auth] auth_otp_requested_error", authError.message)
       setError(authError.message)
       setLoading(false)
       return
@@ -150,4 +153,3 @@ export function LoginForm({ oauthEnabled }: { oauthEnabled: boolean }) {
     </form>
   )
 }
-
