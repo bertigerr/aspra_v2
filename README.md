@@ -52,6 +52,13 @@ import { createSupabaseMiddlewareClient } from "@/lib/supabase/middleware"
 const { supabase, response } = createSupabaseMiddlewareClient(request)
 ```
 
+### Migrations
+
+Migrations live in `supabase/migrations` and must be applied to your Supabase project whenever the app starts throwing `PGRST204` (schema cache out of date).
+
+- Apply: Supabase Dashboard → SQL Editor → run the migration files in timestamp order.
+- Reload schema cache: Dashboard → Settings → API → Restart (or run `notify pgrst, 'reload schema';` in SQL editor).
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
