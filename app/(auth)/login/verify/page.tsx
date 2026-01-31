@@ -121,9 +121,10 @@ function VerifyForm() {
     console.info("[auth] auth_otp_resend_clicked")
 
     const supabase = createSupabaseBrowserClient()
+    const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`
     const { error: authError } = await supabase.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: true },
+      options: { shouldCreateUser: true, emailRedirectTo },
     })
 
     if (authError) {

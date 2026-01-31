@@ -28,6 +28,15 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 cp .env.example .env.local
 ```
 
+### Auth settings
+
+This app uses passwordless auth (Email OTP) and an OAuth callback route at `/auth/callback`.
+
+- Supabase Dashboard → Authentication → Providers → Email: enable Email OTP (code mode).
+- Supabase Dashboard → Authentication → URL Configuration:
+  - Site URL: your production domain (Vercel prod).
+  - Redirect URLs: include `http://localhost:3000/auth/callback` and your prod/preview `/auth/callback` URLs.
+
 2. Browser client usage:
 
 ```ts
