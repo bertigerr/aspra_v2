@@ -21,18 +21,17 @@ function LoginForm() {
 
     const formData = new FormData(event.currentTarget)
     const email = String(formData.get("email") || "").trim()
-    const password = String(formData.get("password") || "")
 
-    if (!email || !password) {
-      setError("Введите email и пароль.")
+    if (!email) {
+      setError("Введите email.")
       setLoading(false)
       return
     }
 
     const supabase = createSupabaseBrowserClient()
-    const { error: authError } = await supabase.auth.signInWithPassword({
+    const { error: authError } = await supabase.auth.signInWithOtp({
       email,
-      password,
+      options: { shouldCreateUser: true },
     })
 
     if (authError) {
@@ -45,8 +44,8 @@ function LoginForm() {
     const safeNext =
       nextPath && nextPath.startsWith("/") && nextPath !== "/" ? nextPath : "/app"
 
-    router.push(safeNext)
-    router.refresh()
+    const query = new URLSearchParams({ email, next: safeNext })
+    router.push(`/login/verify?${query.toString()}`)
   }
 
   return (
@@ -62,20 +61,7 @@ function LoginForm() {
           autoComplete="email"
           placeholder="you@example.com"
           className="border-white/10 bg-white/10 text-white placeholder:text-white/40"
-          required
-        />
-      </div>
-      <div className="space-y-2">
-        <label className="text-xs font-medium text-white/70" htmlFor="password">
-          Пароль
-        </label>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          placeholder="••••••••"
-          className="border-white/10 bg-white/10 text-white placeholder:text-white/40"
+          defaultValue={searchParams.get("email") || ""}
           required
         />
       </div>
@@ -91,7 +77,7 @@ function LoginForm() {
         className="h-11 w-full rounded-xl bg-white text-zinc-950 hover:bg-white/90"
         disabled={loading}
       >
-        {loading ? "Входим..." : "Войти"}
+        {loading ? "Отправляем код..." : "Получить код"}
       </Button>
     </form>
   )
@@ -102,10 +88,6 @@ function LoginFormFallback() {
     <div className="space-y-4 animate-pulse">
       <div className="space-y-2">
         <div className="h-4 w-12 rounded bg-white/10" />
-        <div className="h-10 rounded-md bg-white/10" />
-      </div>
-      <div className="space-y-2">
-        <div className="h-4 w-16 rounded bg-white/10" />
         <div className="h-10 rounded-md bg-white/10" />
       </div>
       <div className="h-11 rounded-xl bg-white/20" />
@@ -122,7 +104,7 @@ export default function LoginPage() {
           <div className="mb-8 space-y-2">
             <p className="text-xs uppercase tracking-[0.3em] text-white/50">Aspra</p>
             <h1 className="text-2xl font-semibold">Вход</h1>
-            <p className="text-sm text-white/70">Вернись к своему словарю и тренировкам.</p>
+            <p className="text-sm text-white/70">Отправим код на почту — пароль не нужен.</p>
           </div>
 
           <Suspense fallback={<LoginFormFallback />}>
