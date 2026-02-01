@@ -3,6 +3,8 @@ import { redirect } from "next/navigation"
 
 import { LoginForm } from "./login-form"
 
+export const dynamic = "force-dynamic"
+
 function LoginFormFallback() {
   return (
     <div className="space-y-4 animate-pulse">
@@ -15,16 +17,20 @@ function LoginFormFallback() {
   )
 }
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const code = typeof searchParams?.code === "string" ? searchParams.code : null
-  const next = typeof searchParams?.next === "string" ? searchParams.next : null
-  const error = typeof searchParams?.error === "string" ? searchParams.error : null
+  const resolvedSearchParams = await searchParams
+
+  const code = typeof resolvedSearchParams.code === "string" ? resolvedSearchParams.code : null
+  const next = typeof resolvedSearchParams.next === "string" ? resolvedSearchParams.next : null
+  const error = typeof resolvedSearchParams.error === "string" ? resolvedSearchParams.error : null
   const errorDescription =
-    typeof searchParams?.error_description === "string" ? searchParams.error_description : null
+    typeof resolvedSearchParams.error_description === "string"
+      ? resolvedSearchParams.error_description
+      : null
 
   if (code || error) {
     const query = new URLSearchParams()
