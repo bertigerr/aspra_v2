@@ -8,6 +8,19 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { createSupabaseBrowserClient } from "@/lib/supabase/client"
 
+type EmailVerifyType = "email" | "signup"
+
+function getSafeNextPath(nextPath: string | null) {
+  if (!nextPath) return "/app"
+  if (!nextPath.startsWith("/") || nextPath.startsWith("//")) return "/app"
+  if (nextPath === "/") return "/app"
+  return nextPath
+}
+
+function getVerifyType(raw: string | null): EmailVerifyType {
+  return raw === "signup" ? "signup" : "email"
+}
+
 function toFriendlyOtpErrorMessage(message: string) {
   const normalized = message.toLowerCase()
 
@@ -33,9 +46,8 @@ function VerifyForm() {
   const searchParams = useSearchParams()
 
   const email = (searchParams.get("email") || "").trim()
-  const nextPath = searchParams.get("next")
-  const safeNext =
-    nextPath && nextPath.startsWith("/") && nextPath !== "/" ? nextPath : "/app"
+  const safeNext = getSafeNextPath(searchParams.get("next"))
+  const verifyType = getVerifyType(searchParams.get("type"))
 
   const changeEmailHref = useMemo(() => {
     const query = new URLSearchParams({ next: safeNext })
@@ -82,7 +94,7 @@ function VerifyForm() {
     const { error: authError } = await supabase.auth.verifyOtp({
       email,
       token,
-      type: "email",
+      type: verifyType,
     })
 
     if (authError) {
@@ -121,10 +133,9 @@ function VerifyForm() {
     console.info("[auth] auth_otp_resend_clicked")
 
     const supabase = createSupabaseBrowserClient()
-    const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`
     const { error: authError } = await supabase.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: true, emailRedirectTo },
+      options: { shouldCreateUser: verifyType === "signup" },
     })
 
     if (authError) {

@@ -8,12 +8,24 @@ import { Input } from "@/components/ui/input"
 import { createSupabaseBrowserClient } from "@/lib/supabase/client"
 
 type OAuthProvider = "google" | "apple" | "facebook"
+type EmailVerifyType = "email" | "signup"
 
 function getSafeNextPath(nextPath: string | null) {
   if (!nextPath) return "/app"
   if (!nextPath.startsWith("/") || nextPath.startsWith("//")) return "/app"
   if (nextPath === "/") return "/app"
   return nextPath
+}
+
+function isAuthUserMissingOrUnconfirmed(error: { message: string; status?: number; code?: string }) {
+  if (error.code === "user_not_found" || error.code === "email_not_confirmed") return true
+  if (error.status === 404) return true
+
+  const message = error.message.toLowerCase()
+  if (message.includes("user") && message.includes("not found")) return true
+  if (message.includes("not") && message.includes("confirmed")) return true
+
+  return false
 }
 
 export function LoginForm({ oauthEnabled }: { oauthEnabled: boolean }) {
@@ -42,20 +54,39 @@ export function LoginForm({ oauthEnabled }: { oauthEnabled: boolean }) {
     console.info("[auth] auth_otp_requested")
 
     const supabase = createSupabaseBrowserClient()
-    const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`
+
+    let verifyType: EmailVerifyType = "email"
+
     const { error: authError } = await supabase.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: true, emailRedirectTo },
+      options: { shouldCreateUser: false },
     })
 
     if (authError) {
-      console.error("[auth] auth_otp_requested_error", authError.message)
-      setError(authError.message)
-      setLoading(false)
-      return
+      if (isAuthUserMissingOrUnconfirmed(authError)) {
+        const { error: signupError } = await supabase.auth.signInWithOtp({
+          email,
+          options: { shouldCreateUser: true },
+        })
+
+        if (signupError) {
+          console.error("[auth] auth_otp_requested_error", signupError.message)
+          setError(signupError.message)
+          setLoading(false)
+          return
+        }
+
+        verifyType = "signup"
+      } else {
+        console.error("[auth] auth_otp_requested_error", authError.message)
+        setError(authError.message)
+        setLoading(false)
+        return
+      }
     }
 
     const query = new URLSearchParams({ email, next: safeNext })
+    if (verifyType !== "email") query.set("type", verifyType)
     router.push(`/login/verify?${query.toString()}`)
   }
 
