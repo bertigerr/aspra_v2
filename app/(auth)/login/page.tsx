@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import { redirect } from "next/navigation"
 
 import { LoginForm } from "./login-form"
 
@@ -14,7 +15,26 @@ function LoginFormFallback() {
   )
 }
 
-export default function LoginPage() {
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>
+}) {
+  const code = typeof searchParams?.code === "string" ? searchParams.code : null
+  const next = typeof searchParams?.next === "string" ? searchParams.next : null
+  const error = typeof searchParams?.error === "string" ? searchParams.error : null
+  const errorDescription =
+    typeof searchParams?.error_description === "string" ? searchParams.error_description : null
+
+  if (code || error) {
+    const query = new URLSearchParams()
+    if (code) query.set("code", code)
+    if (next) query.set("next", next)
+    if (error) query.set("error", error)
+    if (errorDescription) query.set("error_description", errorDescription)
+    redirect(`/auth/callback?${query.toString()}`)
+  }
+
   const oauthEnabled =
     process.env.AUTH_OAUTH_ENABLED === "true" ||
     process.env.AUTH_OAUTH_ENABLED === "1" ||
@@ -44,4 +64,3 @@ export default function LoginPage() {
     </div>
   )
 }
-
