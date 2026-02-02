@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
 
 import { getSupabaseConfig } from "@/lib/supabase/config"
+import { createNoStoreFetch } from "@/lib/supabase/no-store-fetch"
 
 function getSafeNextPath(nextPath: string | null) {
   if (!nextPath) return "/app"
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
   const { url, anonKey } = getSupabaseConfig()
 
   const supabase = createServerClient(url, anonKey, {
+    global: { fetch: createNoStoreFetch() },
     cookies: {
       getAll() {
         return request.cookies.getAll()
@@ -59,4 +61,3 @@ export async function GET(request: NextRequest) {
 
   return response
 }
-

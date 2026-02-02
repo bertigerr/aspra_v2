@@ -3,12 +3,14 @@ import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
 
 import { getSupabaseConfig } from "./config"
+import { createNoStoreFetch } from "./no-store-fetch"
 
 export function createSupabaseMiddlewareClient(request: NextRequest) {
   let response = NextResponse.next({ request })
   const { url, anonKey } = getSupabaseConfig()
 
   const supabase = createServerClient(url, anonKey, {
+    global: { fetch: createNoStoreFetch() },
     cookies: {
       getAll() {
         return request.cookies.getAll()
@@ -27,4 +29,3 @@ export function createSupabaseMiddlewareClient(request: NextRequest) {
 
   return { supabase, response }
 }
-

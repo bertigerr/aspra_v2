@@ -38,11 +38,16 @@ export async function proxy(request: NextRequest) {
   }
 
   if (user) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("onboarding_completed_at")
       .eq("id", user.id)
       .maybeSingle()
+
+    if (profileError) {
+      console.error("[proxy] profiles_fetch_error", profileError.code || profileError.message)
+      return response
+    }
 
     const isOnboarded = Boolean(profile?.onboarding_completed_at)
     const isOnboardingRoute = pathname === "/onboarding" || pathname.startsWith("/onboarding/")

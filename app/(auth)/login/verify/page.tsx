@@ -202,6 +202,9 @@ function VerifyForm() {
         <p className="text-xs text-white/50">
           Мы отправили код на <span className="text-white/70">{email}</span>
         </p>
+        <p className="text-xs text-white/40">
+          Если вместо кода в письме есть только ссылка — откройте её, чтобы войти.
+        </p>
       </div>
 
       {error && (
