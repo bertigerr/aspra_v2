@@ -22,10 +22,22 @@ function isAuthUserMissingOrUnconfirmed(error: { message: string; status?: numbe
   if (error.status === 404) return true
 
   const message = error.message.toLowerCase()
+  if (message.includes("signups") && message.includes("not allowed")) return true
+  if (message.includes("signup") && message.includes("disabled")) return true
   if (message.includes("user") && message.includes("not found")) return true
   if (message.includes("not") && message.includes("confirmed")) return true
 
   return false
+}
+
+function toFriendlyOtpRequestErrorMessage(message: string) {
+  const normalized = message.toLowerCase()
+
+  if (normalized.includes("signups") && normalized.includes("not allowed")) {
+    return "Регистрация отключена. Включите Signups в Supabase (Authentication → Settings) или используйте существующий аккаунт."
+  }
+
+  return message
 }
 
 export function LoginForm({ oauthEnabled }: { oauthEnabled: boolean }) {
@@ -71,7 +83,7 @@ export function LoginForm({ oauthEnabled }: { oauthEnabled: boolean }) {
 
         if (signupError) {
           console.error("[auth] auth_otp_requested_error", signupError.message)
-          setError(signupError.message)
+          setError(toFriendlyOtpRequestErrorMessage(signupError.message))
           setLoading(false)
           return
         }
@@ -79,7 +91,7 @@ export function LoginForm({ oauthEnabled }: { oauthEnabled: boolean }) {
         verifyType = "signup"
       } else {
         console.error("[auth] auth_otp_requested_error", authError.message)
-        setError(authError.message)
+        setError(toFriendlyOtpRequestErrorMessage(authError.message))
         setLoading(false)
         return
       }
