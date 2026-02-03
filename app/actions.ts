@@ -2,7 +2,7 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createEmptyCard, type Card } from "ts-fsrs";
+import { createEmptyCard, fsrs, Rating, State, type Card, type Grade } from "ts-fsrs";
 import {
     getLangLabel,
     isActiveLang,
@@ -578,4 +578,124 @@ export async function enableLanguage(langCode: ActiveLang, level: LanguageLevel)
     console.info("language_enabled", { lang_code: langCode, level });
 
     return { success: true };
+}
+
+// === Training Actions ===
+
+export interface DueWord {
+    id: string;
+    text: string;
+    translation: string | null;
+    definition: string | null;
+    examples: Example[];
+    state: number;
+    due_date: string;
+    stability: number | null;
+    difficulty: number | null;
+    elapsed_days: number;
+    reps: number;
+    last_review: string | null;
+}
+
+export async function getDueWords(): Promise<DueWord[]> {
+    const { supabase, user } = await requireUser();
+    const activeLang = await requireActiveLang(supabase, user.id);
+
+    const now = new Date().toISOString();
+
+    const { data, error } = await supabase
+        .from("words")
+        .select("id, text, translation, definition, examples, state, due_date, stability, difficulty, elapsed_days, reps, last_review")
+        .eq("user_id", user.id)
+        .eq("lang_code", activeLang)
+        .lte("due_date", now)
+        .order("due_date", { ascending: true });
+
+    if (error) {
+        console.error("getDueWords error:", error);
+        throw new Error("Failed to fetch due words");
+    }
+
+    return (data || []) as DueWord[];
+}
+
+export async function submitReview(wordId: string, rating: number) {
+    const { supabase, user } = await requireUser();
+    const activeLang = await requireActiveLang(supabase, user.id);
+
+    // Validate rating
+    if (rating < 1 || rating > 4) {
+        throw new Error("Invalid rating");
+    }
+
+    // Fetch current word
+    const { data: word, error: fetchError } = await supabase
+        .from("words")
+        .select("id, state, due_date, stability, difficulty, elapsed_days, reps, last_review")
+        .eq("id", wordId)
+        .eq("user_id", user.id)
+        .eq("lang_code", activeLang)
+        .single();
+
+    if (fetchError || !word) {
+        throw new Error("Word not found");
+    }
+
+    // Convert DB record to FSRS Card
+    const now = new Date();
+    const card: Card = {
+        state: word.state as State,
+        due: new Date(word.due_date),
+        stability: word.stability ?? 0,
+        difficulty: word.difficulty ?? 0,
+        elapsed_days: word.elapsed_days,
+        scheduled_days: 0,
+        reps: word.reps,
+        lapses: 0,
+        last_review: word.last_review ? new Date(word.last_review) : undefined,
+        learning_steps: 0,
+    };
+
+    // Calculate new scheduling using FSRS
+    const f = fsrs();
+    const scheduling = f.repeat(card, now);
+    const nextCard = scheduling[rating as Grade].card;
+
+    // Calculate scheduled_days for the review log
+    const scheduledDays = Math.round((nextCard.due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Update word in DB
+    const { error: updateError } = await supabase
+        .from("words")
+        .update({
+            state: nextCard.state,
+            due_date: nextCard.due.toISOString(),
+            stability: nextCard.stability,
+            difficulty: nextCard.difficulty,
+            elapsed_days: nextCard.elapsed_days,
+            reps: nextCard.reps,
+            last_review: now.toISOString(),
+        })
+        .eq("id", wordId)
+        .eq("user_id", user.id);
+
+    if (updateError) {
+        console.error("submitReview update error:", updateError);
+        throw new Error("Failed to update word");
+    }
+
+    // Insert review log
+    const { error: reviewError } = await supabase.from("reviews").insert({
+        word_id: wordId,
+        rating,
+        review_time: now.toISOString(),
+        scheduled_days: scheduledDays,
+    });
+
+    if (reviewError) {
+        console.error("submitReview review log error:", reviewError);
+        // Non-critical, don't throw
+    }
+
+    return { success: true, nextDue: nextCard.due.toISOString() };
 }
