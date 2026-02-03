@@ -2,7 +2,7 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createEmptyCard, fsrs, Rating, State, type Card, type Grade } from "ts-fsrs";
+import { createEmptyCard, fsrs, State, type Card, type Grade } from "ts-fsrs";
 import {
     getLangLabel,
     isActiveLang,

@@ -33,24 +33,27 @@ export default function TrainPage() {
 
     // Load due words on mount
     useEffect(() => {
-        loadWords();
-    }, []);
+        let cancelled = false;
 
-    async function loadWords() {
-        setState("loading");
-        try {
-            const dueWords = await getDueWords();
-            setWords(dueWords);
-            if (dueWords.length === 0) {
+        async function fetchWords() {
+            try {
+                const dueWords = await getDueWords();
+                if (cancelled) return;
+                setWords(dueWords);
+                setState(dueWords.length === 0 ? "empty" : "training");
+            } catch (error) {
+                if (cancelled) return;
+                console.error("Failed to load words:", error);
                 setState("empty");
-            } else {
-                setState("training");
             }
-        } catch (error) {
-            console.error("Failed to load words:", error);
-            setState("empty"); // Fallback to empty state on error
         }
-    }
+
+        fetchWords();
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     function handleFlip() {
         if (!isFlipped) {

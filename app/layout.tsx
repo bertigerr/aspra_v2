@@ -17,6 +17,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Aspra",
   description: "AI language dictionary with spaced repetition.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Aspra",
+  },
 };
 
 export const viewport: Viewport = {

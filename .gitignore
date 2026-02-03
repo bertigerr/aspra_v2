@@ -41,3 +41,7 @@ coverage/
 .DS_Store
 *.pem
 *.key
+
+# Serwist
+public/sw*
+public/swe-worker*
