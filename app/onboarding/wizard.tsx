@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   LANGUAGE_LEVELS,
@@ -36,8 +35,6 @@ export function OnboardingWizard({
   initialNativeLang: string | null;
   initialActiveLang: string | null;
 }) {
-  const router = useRouter();
-
   const initialStep: Step = useMemo(() => {
     if (!initialNativeLang) return 1;
     if (!initialActiveLang) return 2;
@@ -131,11 +128,14 @@ export function OnboardingWizard({
     setSaving(true);
     try {
       await completeOnboarding(native, activeLang as ActiveLang, level as LanguageLevel);
-      router.push("/app");
-      router.refresh();
+      window.location.assign("/app");
     } catch (e) {
       console.error(e);
-      setError("Не удалось завершить онбординг. Проверь сеть и попробуй снова.");
+      if (e instanceof Error && e.message) {
+        setError(e.message);
+      } else {
+        setError("Не удалось завершить онбординг. Проверь сеть и попробуй снова.");
+      }
     } finally {
       setSaving(false);
     }
